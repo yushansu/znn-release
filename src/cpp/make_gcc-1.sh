@@ -1,3 +1,3 @@
 #!/bin/bash
-g++ -std=c++11 $1.cpp -I/nfs/yushans/boost_1_63_0 -I../.. -I/memex/yushans/fftw-3.3.6-pl1 -I../../src/include -DNDEBUG -O3 -DZNN_CUBE_POOL_LOCKFREE -DZNN_USE_FLOATS -lpthread -lrt -lfftw3f -o $1 -DZNN_DONT_CACHE_FFTS
-#-ljemalloc 
+g++ -std=c++11 $1.cpp -I/nfs/yushans/boost_1_63_0 -I../.. -I/memex/yushans/fftw-3.3.6-pl1 -I../../src/include -DNDEBUG -O3 -DZNN_CUBE_POOL_LOCKFREE -DZNN_USE_FLOATS -lpthread -lrt -lfftw3f -o $1 -DZNN_DONT_CACHE_FFTS -O2 -fPIC -I../common/inc \
+            -I/nfs/yushans/intelFPGA/16.1/hld/host/include  /memex/yushans/common/src/AOCLUtils/opencl.cpp /memex/yushans/common/src/AOCLUtils/options.cpp -I/memex/yushans/common/inc -L/nfs/yushans/intelFPGA/16.1/hld/board/s5_ref/linux64/lib -L/nfs/yushans/intelFPGA/16.1/hld/host/linux64/lib -Wl,--no-as-needed -lalteracl -laltera_s5_ref_mmd -lelf 
