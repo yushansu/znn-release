@@ -17,14 +17,8 @@
 //
 #pragma once
 
-#ifdef ZNN_USE_MKL_NATIVE_FFT
-#  include "fftmkl.hpp"
-#else
-#ifdef FPGA
-#  include "fft_fpga.hpp"
-#else
-
 #include "fftw_plans.hpp"
+#include "fft_fpga_transform.hpp"
 
 #include <zi/time.hpp>
 
@@ -34,14 +28,6 @@
 #else
 #  define ZNN_MEASURE_FFT_START() static_cast<void>(0)
 #  define ZNN_MEASURE_FFT_END() static_cast<void>(0)
-#endif
-
-#ifdef ZNN_USE_FLOATS
-#  define FFT_EXECUTE_DFT_R2C fftwf_execute_dft_r2c
-#  define FFT_EXECUTE_DFT_C2R fftwf_execute_dft_c2r
-#else
-#  define FFT_EXECUTE_DFT_R2C fftw_execute_dft_r2c
-#  define FFT_EXECUTE_DFT_C2R fftw_execute_dft_c2r
 #endif
 
 namespace znn { namespace v4 {
@@ -98,38 +84,12 @@ public:
     private:
         vec3i    sz           ;
         vec3i    actual_sz    ;
-        fft_plan forward_plan ;
-        fft_plan backward_plan;
-
-        int32_t get_optimal(int32_t s) const
-        {
-            return s;
-            // SLOW so what, SUE ME!
-            if ( s < 10 ) return s;
-            if ( s > 384 ) return s;
-
-            std::vector<int32_t> mins({
-                    10,15,16,20,25,32,36,44,48,64,72,78,84,88,90,
-                        100,112,128,140,150,160,176,200,220,224,
-                        256,260,300,320,384});
-
-            return *std::lower_bound(mins.begin(), mins.end(),s);
-        }
-
 
     public:
         transformer(const vec3i& s)
             : sz(s)
             , actual_sz(s)
         {
-            if ( (s[0] == 1) && (s[1] == s[2]) )
-            {
-                int32_t opt = get_optimal(s[1]);
-                actual_sz[1] = actual_sz[2] = opt;
-            }
-
-            forward_plan  = fft_plans.get_forward(actual_sz);
-            backward_plan = fft_plans.get_backward(actual_sz);
         }
 
         vec3i const & size() const
@@ -149,9 +109,12 @@ public:
             ZI_ASSERT(v4::size(in)==actual_sz);
 
             ZNN_MEASURE_FFT_START();
-            FFT_EXECUTE_DFT_R2C(forward_plan,
-                                 reinterpret_cast<real*>(in.data()),
-                                 reinterpret_cast<fft_complex*>(out.data()));
+            forward_r2c_3d_fpga(sz.get<0>(),
+                                sz.get<1>(),
+                                sz.get<2>(),
+                                reinterpret_cast<real*>(in.data()),
+                                reinterpret_cast<complex*>(out.data())
+                                );
             ZNN_MEASURE_FFT_END();
         }
 
@@ -162,8 +125,10 @@ public:
             ZI_ASSERT(v4::size(out)==actual_sz);
 
             ZNN_MEASURE_FFT_START();
-            FFT_EXECUTE_DFT_C2R(backward_plan,
-                                 reinterpret_cast<fft_complex*>(in.data()),
+            backward_c2r_3d_fpga(sz.get<0>(),
+                                 sz.get<1>(),
+                                 sz.get<2>(),
+                                 reinterpret_cast<complex*>(in.data()),
                                  reinterpret_cast<real*>(out.data()));
             ZNN_MEASURE_FFT_END();
         }
@@ -198,13 +163,12 @@ public:
         ZI_ASSERT(in.shape()[1]==out.shape()[1]);
         ZI_ASSERT((in.shape()[2]/2+1)==out.shape()[2]);
 
-        fft_plan plan = fft_plans.get_forward(
-            vec3i(in.shape()[0],in.shape()[1],in.shape()[2]));
-
         ZNN_MEASURE_FFT_START();
-        FFT_EXECUTE_DFT_R2C(plan,
-                             reinterpret_cast<real*>(in.data()),
-                             reinterpret_cast<fft_complex*>(out.data()));
+        forward_r2c_3d_fpga(in.shape()[0],
+                            in.shape()[1],
+                            in.shape()[2],
+                            reinterpret_cast<real*>(in.data()),
+                            reinterpret_cast<complex*>(out.data()));
         ZNN_MEASURE_FFT_END();
     }
 
@@ -215,12 +179,11 @@ public:
         ZI_ASSERT(in.shape()[1]==out.shape()[1]);
         ZI_ASSERT((out.shape()[2]/2+1)==in.shape()[2]);
 
-        fft_plan plan = fft_plans.get_backward(
-            vec3i(out.shape()[0],out.shape()[1],out.shape()[2]));
-
         ZNN_MEASURE_FFT_START();
-        FFT_EXECUTE_DFT_C2R(plan,
-                             reinterpret_cast<fft_complex*>(in.data()),
+        backward_c2r_3d_fpga(in.shape()[0],
+                             in.shape()[1],
+                             in.shape()[2],
+                             reinterpret_cast<complex*>(in.data()),
                              reinterpret_cast<real*>(out.data()));
         ZNN_MEASURE_FFT_END();
     }
@@ -256,6 +219,3 @@ public:
 #undef FFT_EXECUTE_DFT_R2C
 #undef FFT_EXECUTE_DFT_C2R
 
-
-#endif // fpga
-#endif // mkl
