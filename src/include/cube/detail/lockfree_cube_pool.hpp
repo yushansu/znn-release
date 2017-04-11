@@ -21,12 +21,17 @@
 #include <boost/lockfree/stack.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <array>
+#include <iostream>
 
 #include "../../types.hpp"
 #include "../../lockfree_allocator.hpp"
 
 #ifdef ZNN_XEON_PHI
 #  include <mkl.h>
+#endif
+
+#ifdef FPGA
+#  include "fpga/OCLGlobalState.hpp"
 #endif
 
 namespace znn { namespace v4 {
@@ -42,10 +47,19 @@ inline void* znn_malloc(size_t s)
 {
 #ifdef ZNN_XEON_PHI
     void* r = mkl_malloc(s,64);
+    if ( !r ) throw std::bad_alloc();
+#else
+#ifdef FPGA
+    void *r = clSVMAllocAltera(clv.context,
+                               CL_MEM_READ_WRITE,
+                               s,
+                               0);
+    if ( s > 0 && (!r) ) throw std::bad_alloc();
 #else
     void* r = malloc(s);
-#endif
     if ( !r ) throw std::bad_alloc();
+#endif
+#endif
     return r;
 }
 
@@ -54,7 +68,11 @@ inline void znn_free(void* ptr)
 #ifdef ZNN_XEON_PHI
     mkl_free(ptr);
 #else
+#ifdef FPGA
+    clSVMFreeAltera(clv.context, ptr);
+#else
     free(ptr);
+#endif
 #endif
 }
 

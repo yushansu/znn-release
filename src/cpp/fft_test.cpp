@@ -16,6 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 #include "network/parallel/network.hpp"
+#include "fpga/OCLGlobalState.hpp"
 
 using namespace znn::v4;
 
@@ -52,10 +53,22 @@ void test_single_fft( vec3i const & size )
     std::cout << size << ' ' << max << std::endl;
 }
 
+#ifdef FPGA
+cl_vars_t clv;
+#endif
+
 int main()
 {
+#ifdef FPGA
+  clv.cl_init(0,0);
+#endif
+
     for ( int i = 1; i < 10; ++i )
         for ( int j = 1; j < 10; ++j )
             for ( int k = 1; k < 10; ++k )
                 test_single_fft(vec3i(i,j,k));
+#ifdef FPGA
+  clv.cl_finalize();
+#endif
+
 }
