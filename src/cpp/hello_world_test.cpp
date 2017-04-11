@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 #include "network/parallel/network.hpp"
-#include "fpga/hello_world.hpp"
+#include "/memex/yushans/znn-release/src/cpp/hello_world/host/src/hello_world.hpp"
 
 using namespace znn::v4;
 
