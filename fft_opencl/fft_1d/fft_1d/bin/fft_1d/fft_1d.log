@@ -1,0 +1,8 @@
+Compiler Command: aoc -march=emulator device/fft_1d.cl -o bin/fft_1d.aocx --board s5_ref
+/memex/yushans/fft_1d/fft_1d/device/fft_1d.cl:7:45: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+__kernel void data_in(__global const float *x, __global const float *y){
+                                            ^
+/memex/yushans/fft_1d/fft_1d/device/fft_1d.cl:7:70: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+__kernel void data_in(__global const float *x, __global const float *y){
+                                                                     ^
+2 warnings generated.
