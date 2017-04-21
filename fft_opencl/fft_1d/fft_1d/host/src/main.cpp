@@ -41,7 +41,6 @@ int main() {
     return -1;
   }
 
-  //////*****^_^^_^*******////////
   float * A = (float *)clSVMAllocAltera(context, CL_MEM_READ_ONLY, sz* sizeof(float),0);
   float * B = (float *)clSVMAllocAltera(context, CL_MEM_READ_ONLY, sz* sizeof(float),0);
   float * C = (float *)clSVMAllocAltera(context, CL_MEM_READ_ONLY, sz* sizeof(float),0);
