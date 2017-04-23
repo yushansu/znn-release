@@ -17,6 +17,7 @@
 //
 #include "network/parallel/network.hpp"
 #include "fpga/OCLGlobalState.hpp"
+#include <omp.h>
 
 using namespace znn::v4;
 
@@ -35,7 +36,11 @@ void test_single_fft( vec3i const & size )
 
     auto f = fftw::transformer(size);
 
+    // Measure forward time
+    fft_stats.reset_total_time();
     auto c = f.forward(std::move(a2));
+    std::cout << "Forward time: " << fft_stats.get_total_time()  << std::endl;
+
     a2 = f.backward(std::move(c));
 
     *a2 /= (size[0] * size[1] * size[2]);
@@ -63,10 +68,16 @@ int main()
   clv.cl_init(0,0);
 #endif
 
+  for(int iter = 0 ; iter < 11 ; iter++)
+  {
+    test_single_fft(vec3i(64,64,64));
+  }
+/*
     for ( int i = 1; i < 10; ++i )
         for ( int j = 1; j < 10; ++j )
             for ( int k = 1; k < 10; ++k )
                 test_single_fft(vec3i(i,j,k));
+                */
 #ifdef FPGA
   clv.cl_finalize();
 #endif

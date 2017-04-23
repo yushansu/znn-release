@@ -30,7 +30,7 @@
 
 #ifdef ZNN_MEASURE_FFT_RUNTIME
 #  define ZNN_MEASURE_FFT_START() zi::wall_timer wt
-#  define ZNN_MEASURE_FFT_END() fftw_stats.add(wt.elapsed<double>())
+#  define ZNN_MEASURE_FFT_END() fft_stats.add(wt.elapsed<double>())
 #else
 #  define ZNN_MEASURE_FFT_START() static_cast<void>(0)
 #  define ZNN_MEASURE_FFT_END() static_cast<void>(0)
