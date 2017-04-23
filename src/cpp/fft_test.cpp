@@ -36,9 +36,13 @@ void test_single_fft( vec3i const & size )
     auto f = fftw::transformer(size);
 
     // Measure forward time
+#ifdef ZNN_MEASURE_FFT_RUNTIME
     fft_stats.reset_total_time();
+#endif
     auto c = f.forward(std::move(a2));
+#ifdef ZNN_MEASURE_FFT_RUNTIME
     std::cout << "Forward time: " << fft_stats.get_total_time()  << std::endl;
+#endif
 
     a2 = f.backward(std::move(c));
 
