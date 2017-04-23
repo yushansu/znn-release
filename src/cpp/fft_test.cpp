@@ -17,7 +17,6 @@
 //
 #include "network/parallel/network.hpp"
 #include "fpga/OCLGlobalState.hpp"
-#include <omp.h>
 
 using namespace znn::v4;
 
