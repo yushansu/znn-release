@@ -5,7 +5,7 @@
 #include <math.h>
 #include <cstring>
 #include "CL/opencl.h"
-//#include "CL/cl_ext_altera.h"
+#include "CL/cl_ext_altera.h"
 #include "AOCLUtils/aocl_utils.h"
 #include "../inc/fft_config.h"
 
@@ -178,23 +178,6 @@ void test_fft(int iterations, bool inverse) {
     for (int i = 0; i < N * N * N; i++) {
         h_outData[i] = h_inData[i];
     }
-/*
-    // bit reversing makes it match up with the python validate script
-    int nr_points = 64;
-    int lognr_points = 6;
-    float2 *temp = (float2 *)alloca(sizeof(float2) * nr_points);
-    for (int i = 0; i < nr_points; i++) temp[i] = h_outData[i];
-    for (int i = 0; i < nr_points; i++) {
-        int fwd = i;
-        int bit_rev = 0;
-        for (int j = 0; j < lognr_points; j++) {
-            bit_rev <<= 1;
-            bit_rev |= fwd & 1;
-            fwd >>= 1;
-        }
-        h_outData[i] = temp[bit_rev];
-    }
-    */
 
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_outData[j].x);
@@ -233,7 +216,6 @@ void test_fft(int iterations, bool inverse) {
     */
 }
 
-
 /////// HELPER FUNCTIONS ///////
 
 // provides a linear offset in the input array
@@ -249,7 +231,7 @@ bool init() {
     }
 
     // Get the OpenCL platform.
-    platform = findPlatform("Altera");
+    platform = findPlatform("Intel(R) FPGA");
     if(platform == NULL) {
         printf("ERROR: Unable to find Intel(R) FPGA OpenCL platform\n");
         return false;
@@ -274,7 +256,6 @@ bool init() {
     queue1 = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
     checkError(status, "Failed to create command queue");
 
-
     // Create the program.
     std::string binary_file = getBoardBinaryFile("fft1d", device);
     //printf("Using AOCX: %s\n\n", binary_file.c_str());
@@ -291,7 +272,6 @@ bool init() {
 
     kernel1 = clCreateKernel(program, "fetch", &status);
     checkError(status, "Failed to create fetch kernel");
-
 
     cl_device_svm_capabilities caps = 0;
 
@@ -377,20 +357,6 @@ void fourier_transform_gold(bool inverse, const int lognr_points, double2 *data)
             data[i].y = tmp;;
         }
     }
-
-    // Do the bit reversal
-    //double2 *temp = (double2 *)alloca(sizeof(double2) * nr_points);
-    //for (int i = 0; i < nr_points; i++) temp[i] = data[i];
-    //for (int i = 0; i < nr_points; i++) {
-    //    int fwd = i;
-    //    int bit_rev = 0;
-    //    for (int j = 0; j < lognr_points; j++) {
-    //        bit_rev <<= 1;
-    //        bit_rev |= fwd & 1;
-    //        fwd >>= 1;
-    //    }
-    //    data[i] = temp[bit_rev];
-    //}
 }
 
 void fourier_transform_gold_3D(bool inverse, const int lognr_points, double2 *data, int n){
@@ -488,5 +454,4 @@ void fft_1D_FPGA(float2 * input, int iterations, bool inverse){
         }
         output[i] = temp[bit_rev];
     }
-
 }
