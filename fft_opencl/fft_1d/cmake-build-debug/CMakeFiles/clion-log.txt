@@ -1,4 +1,0 @@
-/Applications/CLion.app/Contents/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" "/Users/suyushan/Documents/Documents - sys的MacBook Pro/FPGA Project/OpenCL example/fft_1d"
--- Configuring done
--- Generating done
--- Build files have been written to: /Users/suyushan/Documents/Documents - sys的MacBook Pro/FPGA Project/OpenCL example/fft_1d/cmake-build-debug
