@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     if(!init()) {
         return false;
     }
-    int iterations = N;
+    int iterations = N * N;
 
     Options options(argc, argv);
 
@@ -76,10 +76,10 @@ int main(int argc, char **argv) {
         return false;
     }
 
-    h_inData = (float2 *)clSVMAllocAltera(context, CL_MEM_READ_WRITE, sizeof(float2) * N * N * N * iterations, 0);
-    h_outData = (float2 *)clSVMAllocAltera(context, CL_MEM_READ_WRITE, sizeof(float2) * N * N * N * iterations, 0);
+    h_inData = (float2 *)clSVMAllocAltera(context, CL_MEM_READ_WRITE, sizeof(float2) * N * N * N, 0);
+    h_outData = (float2 *)clSVMAllocAltera(context, CL_MEM_READ_WRITE, sizeof(float2) * N * N * N, 0);
 
-    h_verify = (double2 *)alignedMalloc(sizeof(double2) * N * N * N * iterations);
+    h_verify = (double2 *)alignedMalloc(sizeof(double2) * N * N * N);
     if (!(h_inData && h_outData && h_verify)) {
         printf("ERROR: Couldn't create host buffers\n");
         return false;
@@ -102,13 +102,13 @@ void test_fft(int iterations, bool inverse) {
 
 
     // Initialize input and produce verification data
-    for (int i = 0; i < iterations; i++) {
+    for (int i = 0; i < 1; i++) {
         for (int j = 0; j < N * N * N; j++) {
             h_verify[coord(i, j)].x = h_inData[coord(i, j)].x = (float)((double)rand() / (double)RAND_MAX);
             h_verify[coord(i, j)].y = h_inData[coord(i, j)].y = (float)((double)rand() / (double)RAND_MAX);
         }
     }
-
+/*
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_inData[j].x);
     }
@@ -116,7 +116,7 @@ void test_fft(int iterations, bool inverse) {
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_inData[j].y);
     }
-
+*/
     // Can't pass bool to device, so convert it to int
     int inverse_int = inverse;
 
@@ -126,65 +126,72 @@ void test_fft(int iterations, bool inverse) {
 
     float2 *temp_vec = (float2 *)clSVMAllocAltera(context, CL_MEM_READ_ONLY, sizeof(float2) * N * iterations, 0);
     checkError(status, "Fail to alloc temp_vec");
-    for(int x = 0; x < N; x ++){
-        for(int y = 0; y < N; y++) {
+    for(int x = 0; x < N; x ++) {
+        for (int y = 0; y < N; y++) {
             for (int z = 0; z < N; z++) {
-                temp_vec[y * N + z].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[y * N + z].y = h_inData[IDX(x, y, z, N)].y;
+                temp_vec[x * N * N + y * N + z].x = h_inData[IDX(x, y, z, N)].x;
+                temp_vec[x * N * N + y * N + z].y = h_inData[IDX(x, y, z, N)].y;
             }
         }
-        fft_1D_FPGA(temp_vec, iterations, inverse);
+    }
+    fft_1D_FPGA(temp_vec, iterations, inverse);
+    for(int x = 0; x < N; x++){
         for(int y = 0; y < N; y++){
             for(int z = 0; z < N; z++){
-                h_inData[IDX(x, y, z, N)].x = output[y * N + z].x;
-                h_inData[IDX(x, y, z, N)].y = output[y * N + z].y;
+                h_inData[IDX(x, y, z, N)].x = output[x * N * N + y * N + z].x;
+                h_inData[IDX(x, y, z, N)].y = output[x * N * N + y * N + z].y;
             }
         }
     }
 
-    for(int y = 0; y < N; y ++){
-        for(int z = 0; z < N; z++) {
+
+    for(int y = 0; y < N; y ++) {
+        for (int z = 0; z < N; z++) {
             for (int x = 0; x < N; x++) {
-                temp_vec[z * N + x].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[z * N + x].y = h_inData[IDX(x, y, z, N)].y;
+                temp_vec[y * N * N + z * N + x].x = h_inData[IDX(x, y, z, N)].x;
+                temp_vec[y * N * N + z * N + x].y = h_inData[IDX(x, y, z, N)].y;
             }
         }
-        fft_1D_FPGA(temp_vec, iterations, inverse);
+    }
+    fft_1D_FPGA(temp_vec, iterations, inverse);
+    for(int y = 0; y < N; y++){
         for(int z = 0; z < N; z++){
             for(int x = 0; x < N; x++){
-                h_inData[IDX(x, y, z, N)].x = output[z * N + x].x;
-                h_inData[IDX(x, y, z, N)].y = output[z * N + x].y;
+                h_inData[IDX(x, y, z, N)].x = output[y * N * N + z * N + x].x;
+                h_inData[IDX(x, y, z, N)].y = output[y * N * N + z * N + x].y;
             }
         }
     }
 
-    for(int x = 0; x < N; x ++){
-        for(int z = 0; z < N; z++) {
+    for(int x = 0; x < N; x ++) {
+        for (int z = 0; z < N; z++) {
             for (int y = 0; y < N; y++) {
-                temp_vec[z * N + y].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[z * N + y].y = h_inData[IDX(x, y, z, N)].y;
+                temp_vec[x * N * N + z * N + y].x = h_inData[IDX(x, y, z, N)].x;
+                temp_vec[x * N * N + z * N + y].y = h_inData[IDX(x, y, z, N)].y;
             }
         }
-        fft_1D_FPGA(temp_vec, iterations, inverse);
+    }
+    fft_1D_FPGA(temp_vec, iterations, inverse);
+    for(int x = 0; x < N; x++){
         for(int z = 0; z < N; z++){
             for(int y = 0; y < N; y++){
-                h_inData[IDX(x, y, z, N)].x = output[z * N + y].x;
-                h_inData[IDX(x, y, z, N)].y = output[z * N + y].y;
+                h_inData[IDX(x, y, z, N)].x = output[x * N * N + z * N + y].x;
+                h_inData[IDX(x, y, z, N)].y = output[x * N * N + z * N + y].y;
             }
         }
     }
 
     // Record execution time
     time = getCurrentTimestamp() - time;
-    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
+    printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
     double gpoints_per_sec = ((double) iterations * N / time) * 1E-9;
     double gflops = 5 * N * (log((float)N)/log((float)2))/(time / iterations * 1E9);
-    //printf("\tThroughput = %.4f Gpoints / sec (%.4f Gflops)\n", gpoints_per_sec, gflops);
+    printf("\tThroughput = %.4f Gpoints / sec (%.4f Gflops)\n", gpoints_per_sec, gflops);
     
     for (int i = 0; i < N * N * N; i++) {
         h_outData[i] = h_inData[i];
     }
-
+/*
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_outData[j].x);
     }
@@ -192,7 +199,7 @@ void test_fft(int iterations, bool inverse) {
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_outData[j].y);
     }
-
+*/
     // Print as imaginary number
     //for (int i = 0; i < N * N * N; i++) {
     //    printf("%f + %fi\n", h_outData[i].x, h_outData[i].y);
@@ -449,17 +456,19 @@ void fft_1D_FPGA(float2 * input, int iterations, bool inverse){
     int nr_points = N;
     int lognr_points = LOGN;
     float2 *temp = (float2 *)alloca(sizeof(float2) * nr_points * iterations);
-    for (int k = 0; k < iterations; k++) {
-        for (int i = 0; i < nr_points; i++) temp[i] = output[k * nr_points + i];
-        for (int i = 0; i < nr_points; i++) {
-            int fwd = i;
-            int bit_rev = 0;
-            for (int j = 0; j < lognr_points; j++) {
-                bit_rev <<= 1;
-                bit_rev |= fwd & 1;
-                fwd >>= 1;
+    for(int n = 0; n < N; n++) {
+        for (int m = 0; m < N; m++) {
+            for (int i = 0; i < nr_points; i++) temp[i] = output[n * nr_points * nr_points + m * nr_points + i];
+            for (int i = 0; i < nr_points; i++) {
+                int fwd = i;
+                int bit_rev = 0;
+                for (int j = 0; j < lognr_points; j++) {
+                    bit_rev <<= 1;
+                    bit_rev |= fwd & 1;
+                    fwd >>= 1;
+                }
+                output[n * nr_points * nr_points + m * nr_points + i] = temp[bit_rev];
             }
-            output[k * nr_points + i] = temp[bit_rev];
         }
     }
 }
