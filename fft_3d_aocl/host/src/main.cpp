@@ -165,7 +165,7 @@ void test_fft(int iterations, bool inverse) {
                 temp_vec[z * N + y].y = h_inData[IDX(x, y, z, N)].y;
             }
         }
-            fft_1D_FPGA(temp_vec, iterations, inverse);
+        fft_1D_FPGA(temp_vec, iterations, inverse);
         for(int z = 0; z < N; z++){
             for(int y = 0; y < N; y++){
                 h_inData[IDX(x, y, z, N)].x = output[z * N + y].x;
@@ -448,16 +448,18 @@ void fft_1D_FPGA(float2 * input, int iterations, bool inverse){
     // bit reversing makes it match up with the python validate script
     int nr_points = N;
     int lognr_points = LOGN;
-    float2 *temp = (float2 *)alloca(sizeof(float2) * nr_points);
-    for (int i = 0; i < nr_points; i++) temp[i] = output[i];
-    for (int i = 0; i < nr_points; i++) {
-        int fwd = i;
-        int bit_rev = 0;
-        for (int j = 0; j < lognr_points; j++) {
-            bit_rev <<= 1;
-            bit_rev |= fwd & 1;
-            fwd >>= 1;
+    float2 *temp = (float2 *)alloca(sizeof(float2) * nr_points * iterations);
+    for (int j = 0; j < iterations; j++) {
+        for (int i = 0; i < nr_points; i++) temp[i] = output[j * nr_points + i];
+        for (int i = 0; i < nr_points; i++) {
+            int fwd = i;
+            int bit_rev = 0;
+            for (int j = 0; j < lognr_points; j++) {
+                bit_rev <<= 1;
+                bit_rev |= fwd & 1;
+                fwd >>= 1;
+            }
+            output[j * nr_points + i] = temp[bit_rev];
         }
-        output[i] = temp[bit_rev];
     }
 }
