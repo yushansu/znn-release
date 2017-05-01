@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     if(!init()) {
         return false;
     }
-    int iterations = 1;
+    int iterations = N;
 
     Options options(argc, argv);
 
@@ -127,43 +127,49 @@ void test_fft(int iterations, bool inverse) {
     float2 *temp_vec = (float2 *)clSVMAllocAltera(context, CL_MEM_READ_ONLY, sizeof(float2) * N * iterations, 0);
     checkError(status, "Fail to alloc temp_vec");
     for(int x = 0; x < N; x ++){
+        for(int y = 0; y < N; y++) {
+            for (int z = 0; z < N; z++) {
+                temp_vec[y * N + z].x = h_inData[IDX(x, y, z, N)].x;
+                temp_vec[y * N + z].y = h_inData[IDX(x, y, z, N)].y;
+            }
+        }
+        fft_1D_FPGA(temp_vec, iterations, inverse);
         for(int y = 0; y < N; y++){
             for(int z = 0; z < N; z++){
-                temp_vec[z].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[z].y = h_inData[IDX(x, y, z, N)].y;
-            }
-            fft_1D_FPGA(temp_vec, iterations, inverse);
-            for(int z = 0; z < N; z++){
-                h_inData[IDX(x, y, z, N)].x = output[z].x;
-                h_inData[IDX(x, y, z, N)].y = output[z].y;
+                h_inData[IDX(x, y, z, N)].x = output[y * N + z].x;
+                h_inData[IDX(x, y, z, N)].y = output[y * N + z].y;
             }
         }
     }
 
     for(int y = 0; y < N; y ++){
+        for(int z = 0; z < N; z++) {
+            for (int x = 0; x < N; x++) {
+                temp_vec[z * N + x].x = h_inData[IDX(x, y, z, N)].x;
+                temp_vec[z * N + x].y = h_inData[IDX(x, y, z, N)].y;
+            }
+        }
+        fft_1D_FPGA(temp_vec, iterations, inverse);
         for(int z = 0; z < N; z++){
             for(int x = 0; x < N; x++){
-                temp_vec[x].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[x].y = h_inData[IDX(x, y, z, N)].y;
-            }
-            fft_1D_FPGA(temp_vec, iterations, inverse);
-            for(int x = 0; x < N; x++){
-                h_inData[IDX(x, y, z, N)].x = output[x].x;
-                h_inData[IDX(x, y, z, N)].y = output[x].y;
+                h_inData[IDX(x, y, z, N)].x = output[z * N + x].x;
+                h_inData[IDX(x, y, z, N)].y = output[z * N + x].y;
             }
         }
     }
 
     for(int x = 0; x < N; x ++){
+        for(int z = 0; z < N; z++) {
+            for (int y = 0; y < N; y++) {
+                temp_vec[z * N + y].x = h_inData[IDX(x, y, z, N)].x;
+                temp_vec[z * N + y].y = h_inData[IDX(x, y, z, N)].y;
+            }
+        }
+            fft_1D_FPGA(temp_vec, iterations, inverse);
         for(int z = 0; z < N; z++){
             for(int y = 0; y < N; y++){
-                temp_vec[y].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[y].y = h_inData[IDX(x, y, z, N)].y;
-            }
-            fft_1D_FPGA(temp_vec, iterations, inverse);
-            for(int y = 0; y < N; y++){
-                h_inData[IDX(x, y, z, N)].x = output[y].x;
-                h_inData[IDX(x, y, z, N)].y = output[y].y;
+                h_inData[IDX(x, y, z, N)].x = output[z * N + y].x;
+                h_inData[IDX(x, y, z, N)].y = output[z * N + y].y;
             }
         }
     }

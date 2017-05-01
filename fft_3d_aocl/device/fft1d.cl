@@ -57,7 +57,7 @@
 #define NUM_FETCHES     (1 << (LOGN - LOGPOINTS))
 
 // Log of how much to fetch at once for one area of input buffer.
-#define LOG_CONT_FACTOR 3
+#define LOG_CONT_FACTOR 0
 #define CONT_FACTOR     (1 << LOG_CONT_FACTOR)
 
 // Need some depth to our channels to accomodate their bursty filling.
