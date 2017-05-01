@@ -449,8 +449,8 @@ void fft_1D_FPGA(float2 * input, int iterations, bool inverse){
     int nr_points = N;
     int lognr_points = LOGN;
     float2 *temp = (float2 *)alloca(sizeof(float2) * nr_points * iterations);
-    for (int j = 0; j < iterations; j++) {
-        for (int i = 0; i < nr_points; i++) temp[i] = output[j * nr_points + i];
+    for (int k = 0; k < iterations; k++) {
+        for (int i = 0; i < nr_points; i++) temp[i] = output[k * nr_points + i];
         for (int i = 0; i < nr_points; i++) {
             int fwd = i;
             int bit_rev = 0;
@@ -459,7 +459,7 @@ void fft_1D_FPGA(float2 * input, int iterations, bool inverse){
                 bit_rev |= fwd & 1;
                 fwd >>= 1;
             }
-            output[j * nr_points + i] = temp[bit_rev];
+            output[k * nr_points + i] = temp[bit_rev];
         }
     }
 }
