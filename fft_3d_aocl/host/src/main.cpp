@@ -5,7 +5,7 @@
 #include <math.h>
 #include <cstring>
 #include "CL/opencl.h"
-#include "CL/cl_ext_altera.h"
+//#include "CL/cl_ext_altera.h"
 #include "AOCLUtils/aocl_utils.h"
 #include "../inc/fft_config.h"
 
@@ -237,7 +237,7 @@ bool init() {
     }
 
     // Get the OpenCL platform.
-    platform = findPlatform("Intel(R) FPGA");
+    platform = findPlatform("Altera");
     if(platform == NULL) {
         printf("ERROR: Unable to find Intel(R) FPGA OpenCL platform\n");
         return false;
