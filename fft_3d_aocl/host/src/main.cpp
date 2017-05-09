@@ -108,7 +108,6 @@ void test_fft(int iterations, bool inverse) {
             h_verify[coord(i, j)].y = h_inData[coord(i, j)].y = (float)((double)rand() / (double)RAND_MAX);
         }
     }
-/*
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_inData[j].x);
     }
@@ -116,7 +115,6 @@ void test_fft(int iterations, bool inverse) {
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_inData[j].y);
     }
-*/
     // Can't pass bool to device, so convert it to int
     int inverse_int = inverse;
 
@@ -135,6 +133,7 @@ void test_fft(int iterations, bool inverse) {
         }
     }
     fft_1D_FPGA(temp_vec, iterations, inverse);
+    /*
     for(int x = 0; x < N; x++){
         for(int y = 0; y < N; y++){
             for(int z = 0; z < N; z++){
@@ -152,8 +151,17 @@ void test_fft(int iterations, bool inverse) {
                 temp_vec[y * N * N + z * N + x].y = h_inData[IDX(x, y, z, N)].y;
             }
         }
+    }*/
+    for(int x = 0; x < N; x++){
+        for(int y = 0; y < N; y++){
+            for(int z = 0; z < N; z++){
+                temp_vec[y * N * N + z * N + x].x = output[x * N * N + y * N + z].x;
+                temp_vec[y * N * N + z * N + x].y = output[x * N * N + y * N + z].y;
+            }
+        }
     }
     fft_1D_FPGA(temp_vec, iterations, inverse);
+    /*
     for(int y = 0; y < N; y++){
         for(int z = 0; z < N; z++){
             for(int x = 0; x < N; x++){
@@ -170,6 +178,14 @@ void test_fft(int iterations, bool inverse) {
                 temp_vec[x * N * N + z * N + y].y = h_inData[IDX(x, y, z, N)].y;
             }
         }
+    }*/
+    for(int y = 0; y < N; y++){
+        for(int z = 0; z < N; z++){
+            for(int x = 0; x < N; x++){
+                temp_vec[x * N * N + z * N + y].x = output[y * N * N + z * N + x].x;
+                temp_vec[x * N * N + z * N + y].y = output[y * N * N + z * N + x].y;
+            }
+        }
     }
     fft_1D_FPGA(temp_vec, iterations, inverse);
     for(int x = 0; x < N; x++){
@@ -183,15 +199,15 @@ void test_fft(int iterations, bool inverse) {
 
     // Record execution time
     time = getCurrentTimestamp() - time;
-    printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
+    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
     double gpoints_per_sec = ((double) iterations * N / time) * 1E-9;
     double gflops = 5 * N * (log((float)N)/log((float)2))/(time / iterations * 1E9);
-    printf("\tThroughput = %.4f Gpoints / sec (%.4f Gflops)\n", gpoints_per_sec, gflops);
+    //printf("\tThroughput = %.4f Gpoints / sec (%.4f Gflops)\n", gpoints_per_sec, gflops);
     
     for (int i = 0; i < N * N * N; i++) {
         h_outData[i] = h_inData[i];
     }
-/*
+
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_outData[j].x);
     }
@@ -199,7 +215,6 @@ void test_fft(int iterations, bool inverse) {
     for(int j = 0; j < N * N * N; j++){
         printf("%f\n", h_outData[j].y);
     }
-*/
     // Print as imaginary number
     //for (int i = 0; i < N * N * N; i++) {
     //    printf("%f + %fi\n", h_outData[i].x, h_outData[i].y);
