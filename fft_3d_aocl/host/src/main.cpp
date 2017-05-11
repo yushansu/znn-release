@@ -15,6 +15,7 @@
 // the above header defines log of the FFT size hardcoded in the kernel
 // compute N as 2^LOGN
 #define N (1 << LOGN)
+#define BLOCKSZ 8
 
 //#define USE_SVM_API 1
 
@@ -62,6 +63,169 @@ static void fft_1D_FPGA(float2 * h_inData, int iterations, bool inverse);
 float2 *h_inData, *h_outData, *output;
 double2 *h_verify;
 
+
+inline void transpose4x4_SSE_x(float2 *A, float2 *B, const int lda, const int ldb) {
+    __m128 row1 = _mm_load_ps(&A[0*lda].x);
+    __m128 row2 = _mm_load_ps(&A[1*lda].x);
+    __m128 row3 = _mm_load_ps(&A[2*lda].x);
+    __m128 row4 = _mm_load_ps(&A[3*lda].x);
+    _MM_TRANSPOSE4_PS(row1, row2, row3, row4);
+    _mm_store_ps(&B[0*ldb].x, row1);
+    _mm_store_ps(&B[1*ldb].x, row2);
+    _mm_store_ps(&B[2*ldb].x, row3);
+    _mm_store_ps(&B[3*ldb].x, row4);
+}
+
+
+inline void transpose4x4_SSE_y(float2 *A, float2 *B, const int lda, const int ldb) {
+    __m128 row1 = _mm_load_ps(&A[0*lda].y);
+    __m128 row2 = _mm_load_ps(&A[1*lda].y);
+    __m128 row3 = _mm_load_ps(&A[2*lda].y);
+    __m128 row4 = _mm_load_ps(&A[3*lda].y);
+    _MM_TRANSPOSE4_PS(row1, row2, row3, row4);
+    _mm_store_ps(&B[0*ldb].y, row1);
+    _mm_store_ps(&B[1*ldb].y, row2);
+    _mm_store_ps(&B[2*ldb].y, row3);
+    _mm_store_ps(&B[3*ldb].y, row4);
+}
+
+inline void transpose_block_SSE4x4(float2 *A, float2 *B, const int l, const int n, const int m, const int lda, const int ldb , const int ldc, const int block_size) {
+#pragma omp parallel for
+    for (int k = 0; k < l; k += block_size) {
+        for (int i = 0; i < n; i += block_size) {
+            for (int j = 0; j < m; j += block_size) {
+                int max_k2 = k + block_size < l ? k + block_size : l;
+                int max_i2 = i + block_size < n ? i + block_size : n;
+                int max_j2 = j + block_size < m ? j + block_size : m;
+                for (int i2 = i; i2 < max_i2; i2 ++) {
+                    for (int k2 = i; k2 < max_k2; k2 += 4) {
+                        for (int j2 = j; j2 < max_j2; j2 += 4) {
+                            transpose4x4_SSE_x(&A[k2 * lda * ldb + i2 * ldc + j2], &B[j2 * lda * ldb + i2 * ldc + k2], lda * ldb, lda * ldb);
+                            transpose4x4_SSE_y(&A[k2 * lda * ldb + i2 * ldc + j2], &B[j2 * lda * ldb + i2 * ldc + k2], lda * ldb, lda * ldb);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+inline void transpose_scalar_block_1(float2 *A, float2 *B, const int lda, const int ldb, const int ldc, const int block_size) {
+#pragma omp parallel for
+    for(int k = 0; k < block_size; k++) {
+        for (int i = 0; i < block_size; i++) {
+            for (int j = 0; j < block_size; j++) {
+                B[i * lda * ldb + j * ldc + k].x = A[k * lda * ldb + i * ldc + j].x;
+                B[i * lda * ldb + j * ldc + k].y = A[k * lda * ldb + i * ldc + j].y;
+            }
+        }
+    }
+}
+
+inline void transpose_block_1(float2 *A, float2 *B, const int l, const int n, const int m, const int lda, const int ldb, const int ldc, const int block_size) {
+#pragma omp parallel for
+    for(int k = 0; k < l; k += block_size) {
+        for (int i = 0; i < n; i += block_size) {
+            for (int j = 0; j < m; j += block_size) {
+                transpose_scalar_block_1(&A[k * lda * ldb + i * ldc + j], &B[i * lda * ldb + j * ldc + k], lda, ldb, ldc, block_size);
+            }
+        }
+    }
+}
+
+inline void transpose_scalar_block_2(float2 *A, float2 *B, const int lda, const int ldb, const int ldc, const int block_size) {
+#pragma omp parallel for
+    for(int k = 0; k < block_size; k++) {
+        for (int i = 0; i < block_size; i++) {
+            for (int j = 0; j < block_size; j++) {
+                B[j * lda * ldb + i * ldc + k].x = A[k * lda * ldb + i * ldc + j].x;
+                B[j * lda * ldb + i * ldc + k].y = A[k * lda * ldb + i * ldc + j].y;
+            }
+        }
+    }
+}
+
+inline void transpose_block_2(float2 *A, float2 *B, const int l, const int n, const int m, const int lda, const int ldb, const int ldc, const int block_size) {
+#pragma omp parallel for
+    for(int k = 0; k < l; k += block_size) {
+        for (int i = 0; i < n; i += block_size) {
+            for (int j = 0; j < m; j += block_size) {
+                transpose_scalar_block_2(&A[k * lda * ldb + i * ldc + j], &B[j * lda * ldb + i * ldc + k], lda, ldb, ldc, block_size);
+            }
+        }
+    }
+}
+
+inline void transpose_scalar_block_3(float2 *A, float2 *B, const int lda, const int ldb, const int ldc, const int block_size) {
+#pragma omp parallel for
+    for(int k = 0; k < block_size; k++) {
+        for (int i = 0; i < block_size; i++) {
+            for (int j = 0; j < block_size; j++) {
+                B[k * lda * ldb + j * ldc + i].x = A[k * lda * ldb + i * ldc + j].x;
+                B[k * lda * ldb + j * ldc + i].y = A[k * lda * ldb + i * ldc + j].y;
+            }
+        }
+    }
+}
+
+inline void transpose_block_3(float2 *A, float2 *B, const int l, const int n, const int m, const int lda, const int ldb, const int ldc, const int block_size) {
+#pragma omp parallel for
+    for(int k = 0; k < l; k += block_size) {
+        for (int i = 0; i < n; i += block_size) {
+            for (int j = 0; j < m; j += block_size) {
+                transpose_scalar_block_3(&A[k * lda * ldb + i * ldc + j], &B[k * lda * ldb + j * ldc + i], lda, ldb, ldc, block_size);
+            }
+        }
+    }
+}
+
+/*
+ * #define IDX(x,y,z,n) ( ( z ) + ( y )*( n ) + ( x ) * ( n ) * ( n ))
+ *
+ *
+ * for(int x = 0; x < N; x++){
+        for(int z = 0; z < N; z++){
+            for(int y = 0; y < N; y++){
+                h_inData[IDX(x, y, z, N)].x = h_outData[x * N * N + z * N + y].x;
+                h_inData[IDX(x, y, z, N)].y = h_outData[x * N * N + z * N + y].y;
+            }
+        }
+    }
+ */
+
+void temp_test(){
+    float2 *A = (float2 *)alloca(sizeof(float2) * 64 * 64 * 64);
+    float2 *B = (float2 *)alloca(sizeof(float2) * 64 * 64 * 64);
+
+    for(int j = 0; j < 64*64*64; j++) {
+        A[j].x = 1.0 * j;
+        A[j].y = 1.0 * j;
+    }
+
+    //printf("sys");
+
+    double time = getCurrentTimestamp();
+    //transpose_block_SSE4x4(A,B,64,64,64,64,64,64,16);
+
+    //transpose_block(A,B,64,64,64,64,64,64,8);
+
+    time = getCurrentTimestamp() - time;
+
+    printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
+
+    for(int i = 0; i < 64; i++)
+        printf("%f ", A[i].y);
+
+    printf("\n");
+
+    for(int i = 0; i < 64; i++)
+        printf("%f ", B[64 * 64 * i].y);
+}
+
+
+
+
 // Entry point.
 int main(int argc, char **argv) {
     if(!init()) {
@@ -70,6 +234,18 @@ int main(int argc, char **argv) {
     int iterations = N * N;
 
     Options options(argc, argv);
+
+
+
+    //temp_test();
+
+    //time = getCurrentTimestamp() - time;
+
+    //printf("transpose\n");
+
+    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
+
+
 
     // Optional argument to set the number of iterations.
     if(options.has("n")) {
@@ -127,155 +303,72 @@ void test_fft(int iterations, bool inverse) {
 
     // Get the iterationstamp to evaluate performance
     double time = getCurrentTimestamp();
-    // Set the kernel arguments
-
- //   float2 *temp_vec = (float2 *)clSVMAllocAltera(context, CL_MEM_READ_ONLY, sizeof(float2) * N * iterations, 0);
- //   checkError(status, "Fail to alloc temp_vec");
-    /*
-    for(int x = 0; x < N; x ++) {
-        for (int y = 0; y < N; y++) {
-            for (int z = 0; z < N; z++) {
-                temp_vec[x * N * N + y * N + z].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[x * N * N + y * N + z].y = h_inData[IDX(x, y, z, N)].y;
-            }
-        }
-    }
-    */
-    //time = getCurrentTimestamp() - time;
-
-    //printf("copy\n");
-
-    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
-
-    //time = getCurrentTimestamp();
 
     fft_1D_FPGA(h_inData, iterations, inverse);
 
-    //time = getCurrentTimestamp() - time;
+//    time = getCurrentTimestamp() - time;
 
-    //printf("1st fft\n");
+//    printf("1st fft\n");
 
-    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
+//    printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
 
-    //time = getCurrentTimestamp();
-/*
-    for(int x = 0; x < N; x++){
-        for(int y = 0; y < N; y++){
-            for(int z = 0; z < N; z++){
-                h_inData[IDX(x, y, z, N)].x = h_outData[x * N * N + y * N + z].x;
-                h_inData[IDX(x, y, z, N)].y = h_outData[x * N * N + y * N + z].y;
-            }
-        }
-    }
+//    time = getCurrentTimestamp();
 
+    transpose_block_1(h_outData,h_inData,N,N,N,N,N,N,BLOCKSZ);
 
-    for(int y = 0; y < N; y ++) {
-        for (int z = 0; z < N; z++) {
-            for (int x = 0; x < N; x++) {
-                temp_vec[y * N * N + z * N + x].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[y * N * N + z * N + x].y = h_inData[IDX(x, y, z, N)].y;
-            }
-        }
-    }
+//    time = getCurrentTimestamp() - time;
 
-*/
+//    printf("transpose\n");
 
+//    printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
 
-    for(int x = 0; x < N; x++){
-        for(int y = 0; y < N; y++){
-            for(int z = 0; z < N; z++){
-                h_inData[y * N * N + z * N + x].x = h_outData[x * N * N + y * N + z].x;
-                h_inData[y * N * N + z * N + x].y = h_outData[x * N * N + y * N + z].y;
-            }
-        }
-    }
-
-
-    //time = getCurrentTimestamp() - time;
-
-    //printf("transpose\n");
-
-    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
-
-    //time = getCurrentTimestamp();
-
-    fft_1D_FPGA(h_inData, iterations, inverse);
-
-    //time = getCurrentTimestamp() - time;
-
-    //printf("2nd fft\n");
-
-    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
-
-    //time = getCurrentTimestamp();
-/*
-    for(int y = 0; y < N; y++){
-        for(int z = 0; z < N; z++){
-            for(int x = 0; x < N; x++){
-                h_inData[IDX(x, y, z, N)].x = h_outData[y * N * N + z * N + x].x;
-                h_inData[IDX(x, y, z, N)].y = h_outData[y * N * N + z * N + x].y;
-            }
-        }
-    }
-
-    for(int x = 0; x < N; x ++) {
-        for (int z = 0; z < N; z++) {
-            for (int y = 0; y < N; y++) {
-                temp_vec[x * N * N + z * N + y].x = h_inData[IDX(x, y, z, N)].x;
-                temp_vec[x * N * N + z * N + y].y = h_inData[IDX(x, y, z, N)].y;
-            }
-        }
-    }
-*/
-
-    for(int y = 0; y < N; y++){
-        for(int z = 0; z < N; z++){
-            for(int x = 0; x < N; x++){
-                h_inData[x * N * N + z * N + y].x = h_outData[y * N * N + z * N + x].x;
-                h_inData[x * N * N + z * N + y].y = h_outData[y * N * N + z * N + x].y;
-            }
-        }
-    }
-
-
-    //time = getCurrentTimestamp() - time;
-
-    //printf("transpose\n");
-
-    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
-
-    //time = getCurrentTimestamp();
+//    time = getCurrentTimestamp();
 
     fft_1D_FPGA(h_inData, iterations, inverse);
 
 
-    //time = getCurrentTimestamp() - time;
 
-    //printf("third fft\n");
+//    time = getCurrentTimestamp() - time;
 
-    //printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
+//    printf("2nd fft\n");
 
-    //time = getCurrentTimestamp();
+//    printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
 
-    for(int x = 0; x < N; x++){
-        for(int z = 0; z < N; z++){
-            for(int y = 0; y < N; y++){
-                h_inData[IDX(x, y, z, N)].x = h_outData[x * N * N + z * N + y].x;
-                h_inData[IDX(x, y, z, N)].y = h_outData[x * N * N + z * N + y].y;
-            }
-        }
-    }
+//    time = getCurrentTimestamp();
 
+    transpose_block_2(h_outData,h_inData,N,N,N,N,N,N,BLOCKSZ);
+
+//    time = getCurrentTimestamp() - time;
+
+//    printf("transpose\n");
+
+//    printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
+
+//    time = getCurrentTimestamp();
+
+    fft_1D_FPGA(h_inData, iterations, inverse);
+
+
+//    time = getCurrentTimestamp() - time;
+
+//    printf("third fft\n");
+
+//    printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
+
+//    time = getCurrentTimestamp();
+
+    transpose_block_3(h_outData,h_inData,N,N,N,N,N,N,BLOCKSZ);
 
     // Record execution time
     time = getCurrentTimestamp() - time;
 
-    printf("transpose\n");
+//    printf("transpose\n");
 
     printf("\tProcessing time = %.4fms\n", (float)(time * 1E3));
     double gpoints_per_sec = ((double) iterations * N / time) * 1E-9;
     double gflops = 5 * N * (log((float)N)/log((float)2))/(time / iterations * 1E9);
     printf("\tThroughput = %.4f Gpoints / sec (%.4f Gflops)\n", gpoints_per_sec, gflops);
+
 /*
     for (int i = 0; i < N * N * N; i++) {
         h_outData[i] = h_inData[i];
