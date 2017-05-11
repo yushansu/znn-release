@@ -77,39 +77,6 @@ inline void transpose4x4_SSE_x(float2 *A, float2 *B, const int lda, const int ld
 }
 
 
-inline void transpose4x4_SSE_y(float2 *A, float2 *B, const int lda, const int ldb) {
-    __m128 row1 = _mm_load_ps(&A[0*lda].y);
-    __m128 row2 = _mm_load_ps(&A[1*lda].y);
-    __m128 row3 = _mm_load_ps(&A[2*lda].y);
-    __m128 row4 = _mm_load_ps(&A[3*lda].y);
-    _MM_TRANSPOSE4_PS(row1, row2, row3, row4);
-    _mm_store_ps(&B[0*ldb].y, row1);
-    _mm_store_ps(&B[1*ldb].y, row2);
-    _mm_store_ps(&B[2*ldb].y, row3);
-    _mm_store_ps(&B[3*ldb].y, row4);
-}
-
-inline void transpose_block_SSE4x4(float2 *A, float2 *B, const int l, const int n, const int m, const int lda, const int ldb , const int ldc, const int block_size) {
-#pragma omp parallel for
-    for (int k = 0; k < l; k += block_size) {
-        for (int i = 0; i < n; i += block_size) {
-            for (int j = 0; j < m; j += block_size) {
-                int max_k2 = k + block_size < l ? k + block_size : l;
-                int max_i2 = i + block_size < n ? i + block_size : n;
-                int max_j2 = j + block_size < m ? j + block_size : m;
-                for (int i2 = i; i2 < max_i2; i2 ++) {
-                    for (int k2 = i; k2 < max_k2; k2 += 4) {
-                        for (int j2 = j; j2 < max_j2; j2 += 4) {
-                            transpose4x4_SSE_x(&A[k2 * lda * ldb + i2 * ldc + j2], &B[j2 * lda * ldb + i2 * ldc + k2], lda * ldb, lda * ldb);
-                            transpose4x4_SSE_y(&A[k2 * lda * ldb + i2 * ldc + j2], &B[j2 * lda * ldb + i2 * ldc + k2], lda * ldb, lda * ldb);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 
 inline void transpose_scalar_block_1(float2 *A, float2 *B, const int lda, const int ldb, const int ldc, const int block_size) {
 #pragma omp parallel for
@@ -368,6 +335,7 @@ void test_fft(int iterations, bool inverse) {
     double gpoints_per_sec = ((double) iterations * N / time) * 1E-9;
     double gflops = 5 * N * (log((float)N)/log((float)2))/(time / iterations * 1E9);
     printf("\tThroughput = %.4f Gpoints / sec (%.4f Gflops)\n", gpoints_per_sec, gflops);
+
 
 /*
     for (int i = 0; i < N * N * N; i++) {
