@@ -64,20 +64,6 @@ float2 *h_inData, *h_outData, *output;
 double2 *h_verify;
 
 
-inline void transpose4x4_SSE_x(float2 *A, float2 *B, const int lda, const int ldb) {
-    __m128 row1 = _mm_load_ps(&A[0*lda].x);
-    __m128 row2 = _mm_load_ps(&A[1*lda].x);
-    __m128 row3 = _mm_load_ps(&A[2*lda].x);
-    __m128 row4 = _mm_load_ps(&A[3*lda].x);
-    _MM_TRANSPOSE4_PS(row1, row2, row3, row4);
-    _mm_store_ps(&B[0*ldb].x, row1);
-    _mm_store_ps(&B[1*ldb].x, row2);
-    _mm_store_ps(&B[2*ldb].x, row3);
-    _mm_store_ps(&B[3*ldb].x, row4);
-}
-
-
-
 inline void transpose_scalar_block_1(float2 *A, float2 *B, const int lda, const int ldb, const int ldc, const int block_size) {
 #pragma omp parallel for
     for(int k = 0; k < block_size; k++) {
